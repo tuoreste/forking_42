@@ -57,9 +57,8 @@ bool is_L_shape(uint8_t *pixels, int width, int x, int y) {
 
 
     bottomIndex = ((y + 7) * width + (x + 7)) * 4;
-    int count = 0;
     int j = 7 - 2;
-    while(count <  pixels[bottomIndex] + pixels[bottomIndex + 2])
+    for( int count = 0; count <  pixels[bottomIndex] + pixels[bottomIndex + 2];)
     {
         for (int k = 2; k < 8; k++) {
             int charMessage = ((y + j) * width + (x + k)) * 4;
