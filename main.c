@@ -26,16 +26,24 @@ typedef struct {
     uint32_t biClrUsed;
     uint32_t biClrImportant;
 } BMPInfoHeader;
+
 #pragma pack(pop)
 
 #define TARGET_COLOR_B 127
 #define TARGET_COLOR_G 188
 #define TARGET_COLOR_R 217
 
+typedef struct {
+    uint8_t *pixels;
+    int width;
+    int startY;
+    int endY;
+    bool *found;
+    pthread_mutex_t *mutex;
+} ThreadData;
+
 bool is_L_shape(uint8_t *pixels, int width, int x, int y) {
     int bottomIndex = 0;
-
-
     for (int i = 0; i < 8; i++) {
         int leftIndex = ((y + i) * width + x) * 4;
         if (pixels[leftIndex] != TARGET_COLOR_B ||
@@ -44,8 +52,6 @@ bool is_L_shape(uint8_t *pixels, int width, int x, int y) {
             return false;
         }
     }
-
-
     for (int j = 0; j < 7; j++) {
         bottomIndex = ((y + 7) * width + (x + j)) * 4;
         if (pixels[bottomIndex] != TARGET_COLOR_B ||
@@ -54,8 +60,6 @@ bool is_L_shape(uint8_t *pixels, int width, int x, int y) {
             return false;
         }
     }
-
-
     bottomIndex = ((y + 7) * width + (x + 7)) * 4;
     int j = 7 - 2;
     for( int count = 0; count <  pixels[bottomIndex] + pixels[bottomIndex + 2];)
@@ -67,18 +71,8 @@ bool is_L_shape(uint8_t *pixels, int width, int x, int y) {
         }
         j = j - 1;
     }
-
     return true;
 }
-
-typedef struct {
-    uint8_t *pixels;
-    int width;
-    int startY;
-    int endY;
-    bool *found;
-    pthread_mutex_t *mutex;
-} ThreadData;
 
 void *scan_for_L_shape(void *arg) {
     ThreadData *data = (ThreadData *)arg;
@@ -98,52 +92,41 @@ void *scan_for_L_shape(void *arg) {
 
 int main() {
     const char *filename = "42_logo.bmp";
-
     FILE *file = fopen(filename, "rb");
     if (!file) {
         perror("Error opening file");
         return 1;
     }
-
     BMPFileHeader fileHeader;
     fread(&fileHeader, sizeof(BMPFileHeader), 1, file);
 
     BMPInfoHeader infoHeader;
     fread(&infoHeader, sizeof(BMPInfoHeader), 1, file);
-
     if (fileHeader.bfType != 0x4D42) {
         printf("Not valid.\n");
         fclose(file);
         return 1;
     }
-
     if (infoHeader.biBitCount != 32) {
         printf("Only supports 32-bit BMP files.\n");
         fclose(file);
         return 1;
     }
-
     int rowSize = infoHeader.biWidth * 4;
-
     uint8_t *pixels = (uint8_t *)malloc(rowSize * abs(infoHeader.biHeight));
     fseek(file, fileHeader.bfOffBits, SEEK_SET);
     fread(pixels, 1, rowSize * abs(infoHeader.biHeight), file);
     fclose(file);
-
     bool found = false;
     pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
-
     int num_threads = 4;
     pthread_t threads[num_threads];
     ThreadData threadData[num_threads];
-
     for (int i = 0; i < num_threads; i++) {
         int startY = i * (abs(infoHeader.biHeight) / num_threads);
         int endY = (i + 1) * (abs(infoHeader.biHeight) / num_threads);
-        if (i == num_threads - 1) {
+        if (i == num_threads - 1)
             endY = abs(infoHeader.biHeight);
-        }
-
         threadData[i] = (ThreadData){
             .pixels = pixels,
             .width = infoHeader.biWidth,
@@ -152,7 +135,6 @@ int main() {
             .found = &found,
             .mutex = &mutex
         };
-
         pthread_create(&threads[i], NULL, scan_for_L_shape, &threadData[i]);
     }
     for (int i = 0; i < num_threads; i++)
