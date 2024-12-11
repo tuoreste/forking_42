@@ -32,7 +32,7 @@ typedef struct {
 #define TARGET_COLOR_R 217
 
 bool is_L_shape(uint8_t *pixels, int width, int x, int y) {
-    int leftIndex = 0;
+    // int leftIndex = 0;
     int bottomIndex = 0;
 
     for (int i = 0; i < 8; i++) {
@@ -68,7 +68,7 @@ bool is_L_shape(uint8_t *pixels, int width, int x, int y) {
 }
 
 int main() {
-    const char *filename = "example.bmp";
+    const char *filename = "42_logo.bmp";
 
     FILE *file = fopen(filename, "rb");
     if (!file) {
@@ -83,13 +83,13 @@ int main() {
     fread(&infoHeader, sizeof(BMPInfoHeader), 1, file);
 
     if (fileHeader.bfType != 0x4D42) {
-        printf("Not a valid BMP file.\n");
+        printf("Not valid.\n");
         fclose(file);
         return 1;
     }
 
     if (infoHeader.biBitCount != 32) {
-        printf("Only 32-bit BMP files are supported.\n");
+        printf("32 gusa.\n");
         fclose(file);
         return 1;
     }
