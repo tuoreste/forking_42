@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <pthread.h>
 
 #pragma pack(push, 1)
 typedef struct {
@@ -32,8 +33,8 @@ typedef struct {
 #define TARGET_COLOR_R 217
 
 bool is_L_shape(uint8_t *pixels, int width, int x, int y) {
-    // int leftIndex = 0;
     int bottomIndex = 0;
+
 
     for (int i = 0; i < 8; i++) {
         int leftIndex = ((y + i) * width + x) * 4;
@@ -44,6 +45,7 @@ bool is_L_shape(uint8_t *pixels, int width, int x, int y) {
         }
     }
 
+
     for (int j = 0; j < 7; j++) {
         bottomIndex = ((y + 7) * width + (x + j)) * 4;
         if (pixels[bottomIndex] != TARGET_COLOR_B ||
@@ -52,6 +54,8 @@ bool is_L_shape(uint8_t *pixels, int width, int x, int y) {
             return false;
         }
     }
+
+
     bottomIndex = ((y + 7) * width + (x + 7)) * 4;
     int count = 0;
     int j = 7 - 2;
@@ -64,7 +68,33 @@ bool is_L_shape(uint8_t *pixels, int width, int x, int y) {
         }
         j = j - 1;
     }
+
     return true;
+}
+
+typedef struct {
+    uint8_t *pixels;
+    int width;
+    int startY;
+    int endY;
+    bool *found;
+    pthread_mutex_t *mutex;
+} ThreadData;
+
+void *scan_for_L_shape(void *arg) {
+    ThreadData *data = (ThreadData *)arg;
+
+    for (int y = data->startY; y < data->endY; y++) {
+        for (int x = 0; x < data->width - 7; x++) {
+            if (is_L_shape(data->pixels, data->width, x, y)) {
+                pthread_mutex_lock(data->mutex);
+                *(data->found) = true;
+                pthread_mutex_unlock(data->mutex);
+                return NULL;
+            }
+        }
+    }
+    return NULL;
 }
 
 int main() {
@@ -89,7 +119,7 @@ int main() {
     }
 
     if (infoHeader.biBitCount != 32) {
-        printf("32 gusa.\n");
+        printf("Only supports 32-bit BMP files.\n");
         fclose(file);
         return 1;
     }
@@ -102,18 +132,38 @@ int main() {
     fclose(file);
 
     bool found = false;
-    for (int y = 0; y < abs(infoHeader.biHeight) - 7; y++) {
-        for (int x = 0; x < infoHeader.biWidth - 7; x++) {
-            if (is_L_shape(pixels, infoHeader.biWidth, x, y)) {
-                printf("Found L-shape at (%d, %d)\n", x, y);
-                found = true;
-                break;
-            }
+    pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+
+    int num_threads = 4;
+    pthread_t threads[num_threads];
+    ThreadData threadData[num_threads];
+
+    for (int i = 0; i < num_threads; i++) {
+        int startY = i * (abs(infoHeader.biHeight) / num_threads);
+        int endY = (i + 1) * (abs(infoHeader.biHeight) / num_threads);
+        if (i == num_threads - 1) {
+            endY = abs(infoHeader.biHeight);
         }
-        if (found) break;
+
+        threadData[i] = (ThreadData){
+            .pixels = pixels,
+            .width = infoHeader.biWidth,
+            .startY = startY,
+            .endY = endY,
+            .found = &found,
+            .mutex = &mutex
+        };
+
+        pthread_create(&threads[i], NULL, scan_for_L_shape, &threadData[i]);
     }
 
-    if (!found) {
+    for (int i = 0; i < num_threads; i++) {
+        pthread_join(threads[i], NULL);
+    }
+
+    if (found) {
+        printf("L-shape found.\n");
+    } else {
         printf("L-shape not found.\n");
     }
 
