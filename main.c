@@ -156,10 +156,8 @@ int main() {
 
         pthread_create(&threads[i], NULL, scan_for_L_shape, &threadData[i]);
     }
-
-    for (int i = 0; i < num_threads; i++) {
+    for (int i = 0; i < num_threads; i++)
         pthread_join(threads[i], NULL);
-    }
 
     free(pixels);
     return 0;
