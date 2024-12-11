@@ -55,6 +55,51 @@ struct file_content   read_entire_file(char* filename)
 	return (struct file_content){file_data, file_size};
 }
 
+void	huntHeader(struct bmp_header* header, struct file_content file_content) {
+	if (header->bit_per_pixel != 32)
+	{
+		PRINT_ERROR("This example only supports 24-bit BMP files.\n");
+		return ;
+	}
+
+	u8* pixel_data = (u8*)file_content.data + header->data_offset;
+	u32 width = header->width;
+	u32 height = header->height;
+	u32 row_size = ((width * 3 + 3) / 4) * 4;
+
+	u8 target_b = 127;
+	u8 target_g = 188;
+	u8 target_r = 217;
+
+	for (u32 y = height - 1; y >= 0; y--)
+	{
+		for (u32 x = 0; x < width; x++)
+		{
+			u32 pixel_offset = y * row_size + x * 3;
+
+			u8 blue = pixel_data[pixel_offset];
+			u8 green = pixel_data[pixel_offset + 1];
+			u8 red = pixel_data[pixel_offset + 2];
+
+			if (blue == target_b && green == target_g && red == target_r)
+			{
+				printf("Found target pixel at (%u, %u)\n", x, y);
+				if (x + 7 < width) {
+                    u32 len_pixel_offset = y * row_size + (x + 7) * 4;
+                    u8 len_blue = pixel_data[len_pixel_offset];
+                    u8 len_green = pixel_data[len_pixel_offset + 1];
+                    u8 len_red = pixel_data[len_pixel_offset + 2];
+                    u8 len_alpha = pixel_data[len_pixel_offset + 3];
+
+                    printf("Length pixel at (%u, %u) -> #####B: %u, G: %u, #####R: %u, A: %u\n", x + 7, y, len_blue, len_green, len_red, len_alpha);
+                }
+				return ;
+			}
+		}
+	}
+	printf("Target pixel (127, 188, 217) not found.\n");
+}
+
 int main(int argc, char** argv)
 {
 	if (argc != 2)
@@ -70,5 +115,12 @@ int main(int argc, char** argv)
 	}
 	struct bmp_header* header = (struct bmp_header*) file_content.data;
 	printf("signature: %.2s\nfile_size: %u\ndata_offset: %u\ninfo_header_size: %u\nwidth: %u\nheight: %u\nplanes: %i\nbit_per_px: %i\ncompression_type: %u\ncompression_size: %u\n", header->signature, header->file_size, header->data_offset, header->info_header_size, header->width, header->height, header->number_of_planes, header->bit_per_pixel, header->compression_type, header->compressed_image_size);
+
+	printf("\n==================================================\n");
+	huntHeader(header, file_content);
+
+	printf("\n==================================================\n");
+
 	return 0;
 }
+
