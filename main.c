@@ -161,12 +161,6 @@ int main() {
         pthread_join(threads[i], NULL);
     }
 
-    if (found) {
-        printf("L-shape found.\n");
-    } else {
-        printf("L-shape not found.\n");
-    }
-
     free(pixels);
     return 0;
 }
